@@ -20,6 +20,8 @@ package org.switchyard.as7.extension.deployment;
 
 import java.util.List;
 
+import javax.enterprise.inject.spi.Bean;
+import javax.enterprise.inject.spi.BeanManager;
 import javax.xml.namespace.QName;
 
 import org.jboss.as.controller.PathElement;
@@ -35,6 +37,8 @@ import org.switchyard.admin.base.BaseSwitchYard;
 import org.switchyard.as7.extension.SwitchYardExtension;
 import org.switchyard.as7.extension.SwitchYardModelConstants;
 import org.switchyard.as7.extension.admin.ModelNodeCreationUtil;
+import org.switchyard.as7.extension.cdi.SwitchYardCDIConfigModel;
+import org.switchyard.as7.extension.cdi.SwitchYardCDIServiceDomain;
 import org.switchyard.as7.extension.services.SwitchYardAdminService;
 import org.switchyard.config.model.switchyard.SwitchYardModel;
 import org.switchyard.deploy.ActivatorLoader;
@@ -59,6 +63,7 @@ public class SwitchYardDeployment {
     private Deployment _deployment;
     private ServiceDomainManager _domainManager;
     private ServiceDomain _appServiceDomain;
+    private BeanManager _beanManager;
 
     /**
      * Creates a new SwitchYard deployment.
@@ -99,6 +104,22 @@ public class SwitchYardDeployment {
 
             // Use the ROOT_DOMAIN name for now.  Getting an exception SwitchYardModel.getQName().
             _appServiceDomain = _domainManager.addApplicationServiceDomain(ServiceDomainManager.ROOT_DOMAIN, _deployment.getConfig());
+
+            if (_beanManager != null) {
+                // Hook the deployment up to CDI
+                for (Bean<?> bean : _beanManager.getBeans(ServiceDomain.class)) {
+                    if (bean instanceof SwitchYardCDIServiceDomain) {
+                        ((SwitchYardCDIServiceDomain)bean).setServiceDomain(_appServiceDomain);
+                        break;
+                    }
+                }
+                for (Bean<?> bean : _beanManager.getBeans(SwitchYardModel.class)) {
+                    if (bean instanceof SwitchYardCDIConfigModel) {
+                        ((SwitchYardCDIConfigModel)bean).setConfigModel(_deployment.getConfig());
+                        break;
+                    }
+                }
+            }
 
             _deployment.init(_appServiceDomain, ActivatorLoader.createActivators(_appServiceDomain, components));
             setDeploymentState(SwitchYardDeploymentState.STARTING);
@@ -175,6 +196,10 @@ public class SwitchYardDeployment {
      */
     public void removeDeploymentListener(DeploymentListener listener) {
         _deployment.removeDeploymentListener(listener);
+    }
+    
+    public void setBeanManager(BeanManager beanManager) {
+        _beanManager = beanManager;
     }
 
     private void registerManagementNodes() {

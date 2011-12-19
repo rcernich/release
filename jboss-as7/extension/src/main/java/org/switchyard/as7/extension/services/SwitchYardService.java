@@ -20,6 +20,8 @@ package org.switchyard.as7.extension.services;
 
 import java.util.List;
 
+import javax.enterprise.inject.spi.BeanManager;
+
 import org.jboss.as.naming.context.NamespaceContextSelector;
 import org.jboss.logging.Logger;
 import org.jboss.msc.service.Service;
@@ -51,6 +53,7 @@ public class SwitchYardService implements Service<SwitchYardDeployment> {
     @SuppressWarnings("rawtypes")
     private final InjectedValue<List> _components = new InjectedValue<List>();
     private final InjectedValue<SwitchYard> _switchYard = new InjectedValue<SwitchYard>();
+    private final InjectedValue<BeanManager> _beanManager = new InjectedValue<BeanManager>();
     private SwitchYardDeployment _switchyardDeployment;
     private SwitchYardBuilder _switchYardBuilder;
 
@@ -83,6 +86,7 @@ public class SwitchYardService implements Service<SwitchYardDeployment> {
                 LOG.warn("Could not create SwitchYardBuilder.  No administration functionality will be available for this application.");
             }
 
+            _switchyardDeployment.setBeanManager(_beanManager.getOptionalValue());
             _switchyardDeployment.start(_components.getValue());
         } catch (Exception e) {
             try {
@@ -103,6 +107,7 @@ public class SwitchYardService implements Service<SwitchYardDeployment> {
             _switchyardDeployment.removeDeploymentListener(_switchYardBuilder);
             _switchYardBuilder = null;
         }
+        _switchyardDeployment.setBeanManager(null);
     }
 
     /**
@@ -131,6 +136,15 @@ public class SwitchYardService implements Service<SwitchYardDeployment> {
      */
     public final InjectedValue<SwitchYard> getSwitchYard() {
         return _switchYard;
+    }
+
+    /**
+     * Injection point for BeanManager.
+     * 
+     * @return the bean manager injection point.
+     */
+    public final InjectedValue<BeanManager> getBeanManager() {
+        return _beanManager;
     }
 
 }

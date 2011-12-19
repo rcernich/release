@@ -20,6 +20,8 @@ package org.switchyard.as7.extension.deployment;
 
 import java.util.List;
 
+import javax.enterprise.inject.spi.BeanManager;
+
 import org.jboss.as.ee.component.EEModuleDescription;
 import org.jboss.as.naming.context.NamespaceContextSelector;
 import org.jboss.as.naming.deployment.JndiNamingDependencyProcessor;
@@ -88,7 +90,7 @@ public class SwitchYardDeploymentProcessor implements DeploymentUnitProcessor {
         // Only add a dependency on the Weld BeanManager if the deployment has beans (i.e. Weld Metadata)...
         if (WeldDeploymentMarker.isPartOfWeldDeployment(deploymentUnit)) {
             final ServiceName beanManagerServiceName = deploymentUnit.getServiceName().append(BeanManagerService.NAME);
-            switchyardServiceBuilder.addDependency(beanManagerServiceName);
+            switchyardServiceBuilder.addDependency(beanManagerServiceName,BeanManager.class,container.getBeanManager());
         }
 
         switchyardServiceBuilder.setInitialMode(Mode.ACTIVE);

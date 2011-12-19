@@ -33,6 +33,7 @@ import org.jboss.as.weld.deployment.WeldAttachments;
 import org.jboss.modules.Module;
 import org.jboss.weld.bootstrap.spi.Metadata;
 import org.switchyard.as7.extension.SwitchYardDeploymentMarker;
+import org.switchyard.as7.extension.cdi.SwitchYardCDIDeploymentExtension;
 
 /**
  * Deployment processor that installs the SwitchYard CDI extension.
@@ -73,6 +74,7 @@ public class SwitchYardCdiIntegrationProcessor implements DeploymentUnitProcesso
 
                     try {
                         final Module module = deploymentUnit.getAttachment(Attachments.MODULE);
+                        @SuppressWarnings("unchecked")
                         Class<? extends Extension> clazz = (Class<? extends Extension>) module.getClassLoader().loadClass(SWITCHYARD_CDI_EXTENSION);
                         final Extension ext = clazz.newInstance();
                         Metadata<Extension> metadata = new Metadata<Extension>() {
@@ -87,6 +89,19 @@ public class SwitchYardCdiIntegrationProcessor implements DeploymentUnitProcesso
                             }
                         };
                         parent.addToAttachmentList(WeldAttachments.PORTABLE_EXTENSIONS, metadata);
+                        
+                        final Extension sycdiext = new SwitchYardCDIDeploymentExtension();
+                        parent.addToAttachmentList(WeldAttachments.PORTABLE_EXTENSIONS, new Metadata<Extension>() {
+                            @Override
+                            public Extension getValue() {
+                                return sycdiext;
+                            }
+
+                            @Override
+                            public String getLocation() {
+                                return SwitchYardCDIDeploymentExtension.class.getName();
+                            }
+                        });
                     } catch (InstantiationException ie) {
                         throw new DeploymentUnitProcessingException(ie);
                     } catch (IllegalAccessException iae) {
