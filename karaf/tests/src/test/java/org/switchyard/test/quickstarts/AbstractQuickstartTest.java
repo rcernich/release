@@ -1,63 +1,70 @@
 package org.switchyard.test.quickstarts;
 
-import static org.ops4j.pax.exam.CoreOptions.maven;
-//import static org.ops4j.pax.exam.CoreOptions.mavenBundle;
-//import static org.ops4j.pax.exam.CoreOptions.wrappedBundle;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.editConfigurationFileExtend;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.features;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.karafDistributionConfiguration;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.keepRuntimeFolder;
-import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.logLevel;
+import static org.ops4j.pax.exam.CoreOptions.*;
+import static org.ops4j.pax.exam.karaf.options.KarafDistributionOption.*;
 
 import java.io.File;
 
-import javax.inject.Inject;
-
-import org.junit.Assert;
-import org.junit.Rule;
-import org.junit.Test;
-import org.ops4j.pax.exam.Configuration;
+import org.junit.AfterClass;
+import org.ops4j.pax.exam.CoreOptions;
+import org.ops4j.pax.exam.ExamSystem;
 import org.ops4j.pax.exam.MavenUtils;
 import org.ops4j.pax.exam.Option;
+import org.ops4j.pax.exam.TestAddress;
 import org.ops4j.pax.exam.TestContainer;
-import org.ops4j.pax.exam.junit.PaxExamServer;
+import org.ops4j.pax.exam.TestProbeBuilder;
+import org.ops4j.pax.exam.TestProbeProvider;
 import org.ops4j.pax.exam.karaf.options.LogLevelOption.LogLevel;
-import org.osgi.framework.Bundle;
-import org.osgi.framework.BundleContext;
+import org.ops4j.pax.exam.spi.PaxExamRuntime;
 
 public abstract class AbstractQuickstartTest {
-    @Inject
-    private BundleContext bundleContext;
-    
-    @Rule
-    public PaxExamServer exam = new PaxExamServer();
-    
-    @Configuration
-    public Option[] config() {
+
+    protected static TestContainer testContainer;
+
+    @AfterClass
+    public static void afterClass() throws Exception {
+        if (testContainer != null) {
+            final TestContainer tc = testContainer;
+            testContainer = null;
+            tc.stop();
+        }
+    }
+    protected static void startTestContainer(String featureName, String bundleName) throws Exception {
+        final ExamSystem system = PaxExamRuntime.createTestSystem(config(featureName, bundleName));
+        final TestProbeBuilder probeBuilder = system.createProbe();
+        probeBuilder.addTest(DeploymentProbe.class, "testDeployment");
+        testContainer = PaxExamRuntime.createContainer(system);
+        try {
+            final TestProbeProvider probeProvider = probeBuilder.build();
+            testContainer.start();
+            testContainer.installProbe(probeProvider.getStream());
+            Thread.sleep(5000);
+            for (TestAddress test : probeProvider.getTests()) {
+                testContainer.call(test);
+            }
+        } catch (Exception e) {
+            final TestContainer tc = testContainer;
+            testContainer = null;
+            tc.stop();
+            throw e;
+        }
+    }
+
+    private static Option[] config(String featureName, String bundleName) {
         return new Option[] {
             karafDistributionConfiguration().frameworkUrl(maven().groupId("org.apache.karaf").artifactId("apache-karaf").type("tar.gz").versionAsInProject())
             .karafVersion(MavenUtils.getArtifactVersion("org.apache.karaf", "apache-karaf")).name("Apache Karaf").unpackDirectory(new File("target/karaf")).useDeployFolder(false),
             keepRuntimeFolder(),
-            logLevel(LogLevel.DEBUG),
+            logLevel(LogLevel.INFO),
+            configureConsole().ignoreLocalConsole(),
             editConfigurationFileExtend("etc/config.properties", "org.osgi.framework.system.packages.extra", "sun.misc"),
             editConfigurationFileExtend("etc/org.ops4j.pax.url.mvn.cfg", "org.ops4j.pax.url.mvn.repositories", "https://repository.jboss.org/nexus/content/repositories/snapshots@snapshots@noreleases@id=jboss-snapshot"),
             editConfigurationFileExtend("etc/org.ops4j.pax.url.mvn.cfg", "org.ops4j.pax.url.mvn.repositories", "https://repository.jboss.org/nexus/content/repositories/fs-releases@id=fusesource.release"),
-            features("mvn:org.switchyard.karaf/switchyard/2.0.0-SNAPSHOT/xml/features", getFeatureName()),
+            editConfigurationFilePut("etc/org.ops4j.pax.logging.cfg", "log4j.logger.org.switchyard", "DEBUG"),
+            editConfigurationFilePut("etc/org.ops4j.pax.logging.cfg", "log4j.logger.org.ops4j.pax.exam", "DEBUG"),
+            features("mvn:org.switchyard.karaf/switchyard/2.0.0-SNAPSHOT/xml/features", featureName),
+            systemProperty(DeploymentProbe.BUNDLE_NAME_KEY).value(bundleName)
         };
-    }
-
-    @Test
-    public void testDeployment() throws Exception {
-        Assert.assertNotNull(bundleContext);
-        Bundle bundle = null;
-        for (Bundle aux : bundleContext.getBundles()) {
-            if (getBundleName().equals(aux.getSymbolicName())) {
-                bundle = aux;
-                break;
-            }
-        }
-        Assert.assertNotNull(bundle);
-        Assert.assertEquals("Bundle ACTIVE", Bundle.ACTIVE, bundle.getState());
     }
 
     public abstract String getBundleName();
