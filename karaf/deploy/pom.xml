@@ -45,6 +45,17 @@
             *
         </switchyard.osgi.import>
         <switchyard.osgi.services.export>org.switchyard.admin.SwitchYard</switchyard.osgi.services.export>
+        <switchyard.capability.version.filter>&amp;(version&gt;=$(version;==;${switchyard.osgi.version}))(!(version&gt;=$(version;=+;${switchyard.osgi.version})))</switchyard.capability.version.filter>
+        <!-- TODO: We should consider changing serial from a capability to a service. -->
+        <switchyard.osgi.require.capability>
+            org.switchyard.runtime; filter:="(${switchyard.capability.version.filter})",
+            org.switchyard.transform; filter:="(${switchyard.capability.version.filter})",
+            org.switchyard.validate; filter:="(${switchyard.capability.version.filter})",
+            org.switchyard.serial; filter:="(&amp;(type=jackson)(${switchyard.capability.version.filter}))"
+        </switchyard.osgi.require.capability>
+        <switchyard.osgi.provide.capability>
+            org.switchyard;version:Version=${switchyard.osgi.version}
+        </switchyard.osgi.provide.capability>
         <checkstyle.skip>true</checkstyle.skip>
     </properties>
     <dependencies>
